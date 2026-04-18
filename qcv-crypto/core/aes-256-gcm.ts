@@ -10,7 +10,11 @@ export function encrypt(data: Buffer, key: Buffer, iv: Buffer): Buffer {
 }
 
 // TODO: Implement AES-256-GCM decryption
-export function decrypt(encryptedData: Buffer, key: Buffer, iv: Buffer): Buffer {
+export function decrypt(
+  encryptedData: Buffer,
+  key: Buffer,
+  iv: Buffer,
+): Buffer {
   const authTag = encryptedData.slice(encryptedData.length - 16);
   const encrypted = encryptedData.slice(0, encryptedData.length - 16);
   const decipher = createDecipheriv('aes-256-gcm', key, iv);

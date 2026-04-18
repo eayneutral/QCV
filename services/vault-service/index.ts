@@ -41,7 +41,7 @@ async function startServer() {
                 const decoded = jwt.verify(token, ACCESS_TOKEN_SECRET) as UserPayload;
                 req.user = decoded;
                 next();
-            } catch (err) {
+            } catch {
                 return res.sendStatus(403); // Forbidden
             }
         } else {

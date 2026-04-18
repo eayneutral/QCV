@@ -1,13 +1,13 @@
 
 import express from 'express';
 import argon2 from 'argon2';
-import jwt from 'jsonwebtoken';
+import jwt, { JwtPayload } from 'jsonwebtoken';
 import connectDB from './db';
 
 const app = express();
 const port = process.env.AUTH_PORT || 3001;
 
-const ACCESS_TOKEN_SECRET = process.env.ACCESS_TOKEN_SECRET || 'your-super-secret-key'; 
+const ACCESS_TOKEN_SECRET = process.env.ACCESS_TOKEN_SECRET || 'your-super-secret-key';
 const REFRESH_TOKEN_SECRET = process.env.REFRESH_TOKEN_SECRET || 'your-super-secret-refresh-key';
 const ACCESS_TOKEN_EXPIRES_IN = '15m';
 const REFRESH_TOKEN_EXPIRES_IN = '7d';
@@ -92,15 +92,18 @@ async function startServer() {
             return res.sendStatus(403);
         }
 
-        jwt.verify(token, REFRESH_TOKEN_SECRET, (err, user) => {
-            if (err) {
+        try {
+            const decoded = jwt.verify(token, REFRESH_TOKEN_SECRET);
+            if (typeof decoded === 'string') {
                 return res.sendStatus(403);
             }
 
-            const accessToken = jwt.sign({ userId: user.userId, email: user.email }, ACCESS_TOKEN_SECRET, { expiresIn: ACCESS_TOKEN_EXPIRES_IN });
+            const accessToken = jwt.sign({ userId: decoded.userId, email: decoded.email }, ACCESS_TOKEN_SECRET, { expiresIn: ACCESS_TOKEN_EXPIRES_IN });
 
             res.json({ accessToken });
-        });
+        } catch (err) {
+            return res.sendStatus(403);
+        }
     });
 
     app.listen(port, () => {

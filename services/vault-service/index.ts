@@ -1,8 +1,23 @@
 
-import express from 'express';
-import jwt from 'jsonwebtoken';
+import express, { Request, Response, NextFunction } from 'express';
+import jwt, { JwtPayload } from 'jsonwebtoken';
 import { ObjectId } from 'mongodb';
 import connectDB from './db';
+
+// Define a custom interface for the user payload
+interface UserPayload extends JwtPayload {
+    userId: string;
+    email: string;
+}
+
+// Extend the Express Request interface to include the user property
+declare global {
+    namespace Express {
+        interface Request {
+            user?: UserPayload;
+        }
+    }
+}
 
 const app = express();
 const port = process.env.VAULT_PORT || 3002;
@@ -16,34 +31,37 @@ async function startServer() {
     const vaultCollection = db.collection('vault');
     const usersCollection = db.collection('users');
 
-    const authenticateJWT = (req, res, next) => {
+    const authenticateJWT = (req: Request, res: Response, next: NextFunction) => {
         const authHeader = req.headers.authorization;
 
         if (authHeader) {
             const token = authHeader.split(' ')[1];
 
-            jwt.verify(token, ACCESS_TOKEN_SECRET, (err, user) => {
-                if (err) {
-                    return res.sendStatus(403);
-                }
-
-                req.user = user;
+            try {
+                const decoded = jwt.verify(token, ACCESS_TOKEN_SECRET) as UserPayload;
+                req.user = decoded;
                 next();
-            });
+            } catch (err) {
+                return res.sendStatus(403); // Forbidden
+            }
         } else {
-            res.sendStatus(401);
+            res.sendStatus(401); // Unauthorized
         }
     };
 
     app.use(authenticateJWT);
 
-    app.post('/vault/add', async (req, res) => {
+    app.post('/vault/add', async (req: Request, res: Response) => {
         try {
             const { data } = req.body;
-            const { userId } = req.user;
+            // The user property is now available on req
+            const userId = req.user?.userId;
 
             if (!data) {
                 return res.status(400).json({ message: "No data provided" });
+            }
+            if(!userId) {
+                return res.status(401).json({ message: "Unauthorized" });
             }
 
             await vaultCollection.insertOne({ userId: new ObjectId(userId), data });
@@ -54,11 +72,14 @@ async function startServer() {
         }
     });
 
-    app.get('/vault/list', async (req, res) => {
+    app.get('/vault/list', async (req: Request, res: Response) => {
         try {
-            const { userId } = req.user;
+            const userId = req.user?.userId;
+            if(!userId) {
+                return res.status(401).json({ message: "Unauthorized" });
+            }
             const userVault = await vaultCollection.find({ userId: new ObjectId(userId) }).toArray();
-            const data = userVault.map(item => item.data);
+            const data = userVault.map((item: any) => item.data);
             res.json({ data });
         } catch (error) {
             console.error('Vault list error:', error);
@@ -66,7 +87,7 @@ async function startServer() {
         }
     });
 
-    app.post('/vault/share', async (req, res) => {
+    app.post('/vault/share', async (req: Request, res: Response) => {
         try {
             const { data, recipientEmail } = req.body;
 

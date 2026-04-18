@@ -4,7 +4,7 @@ import { MongoClient } from 'mongodb';
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017';
 const DB_NAME = 'secure-vault';
 
-let client;
+let client: MongoClient;
 
 async function connectDB() {
     if (client) {
